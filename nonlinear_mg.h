@@ -12,10 +12,10 @@ public:
     virtual double operator ()(const double x, const double y) const = 0;
 };
 
-class f1 : public source_func
+class func1 : public source_func
 {
 public:
-    f1(const double gamma) : gamma_(gamma) {}
+    func1(const double gamma) : gamma_(gamma) {}
     double operator ()(const double x, const double y) const {
         const double x_xx = x - x*x;
         const double y_yy = y - y*y;
@@ -25,10 +25,10 @@ private:
     const double gamma_;
 };
 
-class f2 : public source_func
+class func2 : public source_func
 {
 public:
-    f2(const double gamma) : gamma_(gamma) {}
+    func2(const double gamma) : gamma_(gamma) {}
     double operator ()(const double x, const double y) const {
         const double xx_xxx = x*x - x*x*x;
         const double sin3piy = std::sin(3*M_PI*y);
@@ -47,20 +47,55 @@ public:
     virtual size_t nf() const;
     virtual int eval_val(const double *u, double *val) const;
     virtual int eval_jac(const double *u, Eigen::SparseMatrix<double> *jac) const;
+    virtual int smooth(double *u, const double *rhs, const size_t times);
+    virtual int solve(double *u, const double *rhs, const size_t times);
+    virtual size_t get_res() const { return N_; }
+    virtual double get_spa() const { return h_; }
+    virtual double get_gamma() const { return gamma_; }
 private:
     const size_t N_;
     const double h_;
     const double gamma_;
-    std::shared_ptr<source_func> src_;
-    Eigen::VectorXd f_;
 };
 
 class nlmg_solver
 {
 public:
+    typedef Eigen::SparseMatrix<double> spmat_t;
+    typedef Eigen::VectorXd vec_t;
+    typedef std::shared_ptr<spmat_t> ptrspmat_t;
+    typedef std::shared_ptr<vec_t> ptrvec_t;
+    typedef std::tuple<ptrspmat_t, ptrspmat_t> transfer_t;
     struct level {
-        level();
+        std::shared_ptr<grid_func> A;
+        ptrvec_t u_;
+        ptrvec_t f_;
+        ptrspmat_t P_;
+        ptrspmat_t R_;
+        const size_t N_;
+        const double h_;
+        level(const size_t res);
+        size_t get_res() const { return N_; }
+        double get_spa() const { return h_; }
     };
+    typedef std::vector<level>::const_iterator level_iterator;
+    nlmg_solver();
+    void build_levels();
+    int solve();
+private:
+    transfer_t coarsen(level_iterator curr);
+    void cycle(level_iterator curr, const vec_t &rhs, vec_t &x);
+
+    size_t nbr_levels_;
+    size_t nbr_inner_cycle_;
+    size_t nbr_outer_cycle_;
+    size_t nbr_prev_smooth_;
+    size_t nbr_post_smooth_;
+    double tolerance_;
+
+    const double gamma_;
+    std::vector<level> levels_;
+    std::shared_ptr<source_func> src_;
 };
 
 }
