@@ -111,6 +111,23 @@ int test_smooth(ptree &pt) {
     return 0;
 }
 
+int test_levels(ptree &pt) {
+    ptree opts;
+    opts.put("level_number", 3);
+    opts.put("inner_iters", 1);
+    opts.put("outer_iters", 1);
+    opts.put("prev_smooth", 2);
+    opts.put("post_smooth", 2);
+    opts.put("tolerance", 1e-8);
+    opts.put("gamma", 1e3);
+
+    nlmg_solver sol(opts);
+    sol.build_levels(128);
+
+    cout << "done\n";
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
     ptree pt;
@@ -119,6 +136,7 @@ int main(int argc, char *argv[])
         CALL_SUB_PROG(test_grid_func);
         CALL_SUB_PROG(test_direct_solver);
         CALL_SUB_PROG(test_smooth);
+        CALL_SUB_PROG(test_levels);
     } catch (const boost::property_tree::ptree_error &e) {
         cerr << "Usage: " << endl;
         zjucad::show_usage_info(std::cerr, pt);

@@ -1,6 +1,7 @@
 #include "nonlinear_mg.h"
 
 #include <iostream>
+#include <iomanip>
 
 using namespace std;
 using namespace Eigen;
@@ -129,11 +130,47 @@ int grid_func::solve(double *u, const double *rhs, const size_t times) {
     }
     return 0;
 }
-
-
 //==============================================================================
+nlmg_solver::nlmg_solver()
+    : nbr_levels_(3),
+      nbr_inner_cycle_(1),
+      nbr_outer_cycle_(10),
+      nbr_prev_smooth_(3),
+      nbr_post_smooth_(3),
+      tolerance_(1e-8),
+      gamma_(1000) {}
 
+nlmg_solver::nlmg_solver(const boost::property_tree::ptree &pt) {
+    nbr_levels_      = pt.get<size_t>("level_number");
+    nbr_inner_cycle_ = pt.get<size_t>("inner_iters");
+    nbr_outer_cycle_ = pt.get<size_t>("outer_iters");
+    nbr_prev_smooth_ = pt.get<size_t>("prev_smooth");
+    nbr_post_smooth_ = pt.get<size_t>("post_smooth");
+    tolerance_       = pt.get<double>("tolerance");
+    gamma_           = pt.get<double>("gamma");
+}
 
+void nlmg_solver::build_levels(const size_t fine_res) {
+    ptrspmat_t P, R;
+    size_t N = fine_res;
+    for (size_t i = 0; i < nbr_levels_-1; ++i) {
+        levels_.push_back(level(N, gamma_));
+        N /= 2;
+        std::tie(P, R) = coarsen(--levels_.end());
+        levels_.rbegin()->P_ = P;
+        levels_.rbegin()->R_ = R;
+    }
+    levels_.push_back(level(N, gamma_));
+
+    /// debug
+    cout << "----------------------------------------------\n";
+    cout << setw(6) << "level" << setw(20) << "resolution\n";
+    size_t cnt = 0;
+    for (level_iterator it = levels_.begin(); it != levels_.end(); ++it) {
+        cout << setw(6) << ++cnt << setw(20) << it->get_res() << endl;
+    }
+    cout << "----------------------------------------------\n";
+}
 
 nlmg_solver::transfer_t nlmg_solver::coarsen(level_iterator curr) {
     const size_t Nf = curr->get_res();
@@ -164,7 +201,6 @@ nlmg_solver::transfer_t nlmg_solver::coarsen(level_iterator curr) {
         res.setFromTriplets(trips.begin(), trips.end());
         R = std::make_shared<spmat_t>(res);
     }
-
     /// prolongation
     {
         vector<Triplet<double>> trips;

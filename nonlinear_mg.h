@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <Eigen/Sparse>
+#include <boost/property_tree/ptree.hpp>
 
 namespace nlmg {
 
@@ -38,7 +39,7 @@ private:
     const double gamma_;
 };
 
-/// -\triangle u + \gamma u * e^u = f
+/// nonlinear operator: -\triangle u + \gamma u * e^u
 class grid_func
 {
 public:
@@ -74,14 +75,17 @@ public:
         ptrspmat_t R_;
         const size_t N_;
         const double h_;
-        level(const size_t res);
+        level(const size_t res, const double gamma) : N_(res), h_(1.0/res) {
+            A = std::make_shared<grid_func>(res, gamma);
+        }
         size_t get_res() const { return N_; }
         double get_spa() const { return h_; }
     };
     typedef std::vector<level>::const_iterator level_iterator;
     nlmg_solver();
-    void build_levels();
-    int solve();
+    nlmg_solver(const boost::property_tree::ptree &pt);
+    void build_levels(const size_t fine_res);
+    int solve(double *x, const double *rhs);
 private:
     transfer_t coarsen(level_iterator curr);
     void cycle(level_iterator curr, const vec_t &rhs, vec_t &x);
@@ -92,8 +96,8 @@ private:
     size_t nbr_prev_smooth_;
     size_t nbr_post_smooth_;
     double tolerance_;
+    double gamma_;
 
-    const double gamma_;
     std::vector<level> levels_;
     std::shared_ptr<source_func> src_;
 };
