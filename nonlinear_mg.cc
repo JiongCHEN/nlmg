@@ -86,9 +86,8 @@ int grid_func::smooth(double *u, const double *rhs, const size_t times) {
                         /(4.0/(h_*h_) + gamma_*(1+u[idx])*std::exp(u[idx]));
             }
         }
-        cout << "relative error: " << (U-prev).norm()/prev.norm() << endl;
         if ( (U-prev).norm() <= 1e-12 * prev.norm() ) {
-            cout << "\t@converged after " << iter << " iterations\n";
+            cout << "\t@Nonlinear GS converged after " << iter << " iterations\n";
             break;
         }
     }
@@ -122,9 +121,8 @@ int grid_func::solve(double *u, const double *rhs, const size_t times) {
         }
         double x_norm = x.norm();
         x += dx;
-        cout << "relative error: " << dx.norm()/x_norm << endl;
         if ( dx.norm() <= 1e-12 * x_norm ) {
-            cout << "\t@converged after " << iter << " iterations\n";
+            cout << "\t@Newton converged after " << iter << " iterations\n";
             break;
         }
     }
@@ -155,21 +153,34 @@ void nlmg_solver::build_levels(const size_t fine_res) {
     size_t N = fine_res;
     for (size_t i = 0; i < nbr_levels_-1; ++i) {
         levels_.push_back(level(N, gamma_));
-        N /= 2;
         std::tie(P, R) = coarsen(--levels_.end());
         levels_.rbegin()->P_ = P;
         levels_.rbegin()->R_ = R;
+        N /= 2;
     }
     levels_.push_back(level(N, gamma_));
 
-    /// debug
+    /// debug info
     cout << "----------------------------------------------\n";
-    cout << setw(6) << "level" << setw(20) << "resolution\n";
+    cout << setw(6) << "level" << setw(15) << "resolution" << setw(15) << "spacing\n";
     size_t cnt = 0;
     for (level_iterator it = levels_.begin(); it != levels_.end(); ++it) {
-        cout << setw(6) << ++cnt << setw(20) << it->get_res() << endl;
+        cout << setw(6) << ++cnt << setw(15) << it->get_res() << setw(15) << it->get_spa() << endl;
     }
     cout << "----------------------------------------------\n";
+}
+
+int nlmg_solver::solve(vec_t &x, const vec_t &rhs) {
+    for (size_t i = 0; i < nbr_outer_cycle_; ++i) {
+        cout << "[INFO] V-cycle " << i << "\n";
+        vec_t temp = x;
+        cycle(levels_.begin(), rhs, x);
+        if ( (x-temp).norm() <= tolerance_*temp.norm() ) {
+            cout << "[INFO] CONVERGED\n\n";
+            break;
+        }
+    }
+    return 0;
 }
 
 nlmg_solver::transfer_t nlmg_solver::coarsen(level_iterator curr) {
@@ -244,6 +255,34 @@ nlmg_solver::transfer_t nlmg_solver::coarsen(level_iterator curr) {
         P = std::make_shared<spmat_t>(pro);
     }
     return std::make_tuple(P, R);
+}
+
+void nlmg_solver::cycle(level_iterator curr, const vec_t &rhs, vec_t &x) {
+    level_iterator next = curr;
+    ++next;
+    if ( next == levels_.end() ) {
+        curr->A_->solve(&x[0], &rhs[0], 1000);
+    } else {
+        for (size_t j = 0; j < nbr_inner_cycle_; ++j) {
+            curr->A_->smooth(&x[0], &rhs[0], nbr_prev_smooth_);
+
+            vec_t ff = vec_t::Zero(curr->A_->nf());
+            curr->A_->eval_val(&x[0], &ff[0]);
+            vec_t resd = rhs - ff;
+
+            const vec_t xc = *curr->R_ * x;
+            vec_t fc = vec_t::Zero(next->A_->nf());
+            next->A_->eval_val(&xc[0], &fc[0]);
+            *next->f_ = *curr->R_ * resd + fc;
+
+            *next->u_ = xc;
+            cycle(next, *next->f_, *next->u_);
+
+            x += (*curr->P_)*(*next->u_-xc);
+
+            curr->A_->smooth(&x[0], &rhs[0], nbr_post_smooth_);
+        }
+    }
 }
 
 }
