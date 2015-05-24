@@ -87,7 +87,6 @@ int grid_func::smooth(double *u, const double *rhs, const size_t times) {
             }
         }
         if ( (U-prev).norm() <= 1e-12 * prev.norm() ) {
-            cout << "\t@Nonlinear GS converged after " << iter << " iterations\n";
             break;
         }
     }
@@ -173,13 +172,26 @@ void nlmg_solver::build_levels(const size_t fine_res) {
 int nlmg_solver::solve(vec_t &x, const vec_t &rhs) {
     for (size_t i = 0; i < nbr_outer_cycle_; ++i) {
         cout << "[INFO] V-cycle " << i << "\n";
-        vec_t temp = x;
         cycle(levels_.begin(), rhs, x);
-        if ( (x-temp).norm() <= tolerance_*temp.norm() ) {
+
+        vec_t Au(get_range_dim());
+        levels_.begin()->A_->eval_val(&x[0], &Au[0]);
+        vec_t resd = rhs - Au;
+        if ( resd.norm() <= tolerance_ ) {
             cout << "[INFO] CONVERGED\n\n";
             break;
         }
     }
+    return 0;
+}
+
+int nlmg_solver::solveFMG(vec_t &x, const vec_t &rhs) {
+    fmg_cycle(levels_.begin(), rhs, x);
+
+    vec_t Au(get_range_dim());
+    levels_.begin()->A_->eval_val(&x[0], &Au[0]);
+    vec_t resd = rhs - Au;
+    cout << "residual norm: " << resd.norm() << endl;
     return 0;
 }
 
@@ -260,6 +272,7 @@ nlmg_solver::transfer_t nlmg_solver::coarsen(level_iterator curr) {
 void nlmg_solver::cycle(level_iterator curr, const vec_t &rhs, vec_t &x) {
     level_iterator next = curr;
     ++next;
+
     if ( next == levels_.end() ) {
         curr->A_->solve(&x[0], &rhs[0], 1000);
     } else {
@@ -283,6 +296,22 @@ void nlmg_solver::cycle(level_iterator curr, const vec_t &rhs, vec_t &x) {
             curr->A_->smooth(&x[0], &rhs[0], nbr_post_smooth_);
         }
     }
+}
+
+void nlmg_solver::fmg_cycle(level_iterator curr, const vec_t &rhs, vec_t &x) {
+    level_iterator next = curr;
+    ++next;
+
+    if ( next == levels_.end() ) {
+        curr->A_->solve(&x[0], &rhs[0], 1000);
+        return;
+    } else {
+        *next->f_ = (*curr->R_)*rhs;
+        fmg_cycle(next, *next->f_, *next->u_);
+    }
+    x = (*curr->P_)*(*next->u_);
+    for (size_t iter = 0; iter < 6; ++iter)
+        cycle(curr, rhs, x);
 }
 
 }

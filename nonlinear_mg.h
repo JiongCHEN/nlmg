@@ -88,11 +88,13 @@ public:
     nlmg_solver(const boost::property_tree::ptree &pt);
     void build_levels(const size_t fine_res);
     int solve(vec_t &x, const vec_t &rhs);
+    int solveFMG(vec_t &x, const vec_t &rhs);
     size_t get_domain_dim() const { return levels_.begin()->get_nx(); }
     size_t get_range_dim() const { return levels_.begin()->get_nf(); }
 private:
     transfer_t coarsen(level_iterator curr);
     void cycle(level_iterator curr, const vec_t &rhs, vec_t &x);
+    void fmg_cycle(level_iterator curr, const vec_t &rhs, vec_t &x);
 
     size_t nbr_levels_;
     size_t nbr_inner_cycle_;

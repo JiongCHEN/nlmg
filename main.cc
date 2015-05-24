@@ -130,13 +130,13 @@ int test_levels(ptree &pt) {
 
 int test_fas(ptree &pt) {
     ptree opts;
-    opts.put("level_number", 2);
+    opts.put("level_number", 6);
     opts.put("inner_iters", 1);
     opts.put("outer_iters", 100);
-    opts.put("prev_smooth", 2);
-    opts.put("post_smooth", 2);
-    opts.put("tolerance", 1e-8);
-    opts.put("gamma", 1e3);
+    opts.put("prev_smooth", 3);
+    opts.put("post_smooth", 3);
+    opts.put("tolerance", 1e-10);
+    opts.put("gamma", 0);
 
     const size_t N = 128;
     const double h = 1.0/N;
@@ -164,13 +164,59 @@ int test_fas(ptree &pt) {
             f[INDEX(i, j, N)] = (*fun)(i*h, j*h);
         }
     }
-    /// approximation
+    /// solve
     srand(time(NULL));
     VectorXd x = VectorXd::Random(NX);
     sol.solve(x, f);
 
-    cout << "error norm: " << (u-x).norm() << endl;
-    cout << "done\n";
+    cout << "# error norm: " << (u-x).norm() << endl;
+    cout << "# done\n";
+    return 0;
+}
+
+int test_fmg_fas(ptree &pt) {
+    ptree opts;
+    opts.put("level_number", 6);
+    opts.put("inner_iters", 1);
+    opts.put("outer_iters", 100);
+    opts.put("prev_smooth", 2);
+    opts.put("post_smooth", 2);
+    opts.put("tolerance", 1e-10);
+    opts.put("gamma", 0);
+
+    const size_t N = 128;
+    const double h = 1.0/N;
+
+    nlmg_solver sol(opts);
+    sol.build_levels(N);
+
+    const size_t NX = sol.get_domain_dim();
+    const size_t NF = sol.get_range_dim();
+
+    /// sampling exact solution
+    VectorXd u(NX);
+    for (size_t i = 1; i <= N-1; ++i) {
+        for (size_t j = 1; j <= N-1; ++j) {
+            u[INDEX(i, j, N)] = [](const double x, const double y)->double {
+                return (x-x*x)*(y-y*y);
+            }(i*h, j*h);
+        }
+    }
+    /// sampling rhs
+    shared_ptr<source_func> fun = std::make_shared<func1>(opts.get<size_t>("gamma"));
+    VectorXd f(NF);
+    for (size_t i = 1; i <= N-1; ++i) {
+        for (size_t j = 1; j <= N-1; ++j) {
+            f[INDEX(i, j, N)] = (*fun)(i*h, j*h);
+        }
+    }
+    /// solve
+    srand(time(NULL));
+    VectorXd x = VectorXd::Random(NX);
+    sol.solveFMG(x, f);
+
+    cout << "# error norm: " << (u-x).norm() << endl;
+    cout << "# done\n";
     return 0;
 }
 
@@ -184,6 +230,7 @@ int main(int argc, char *argv[])
         CALL_SUB_PROG(test_smooth);
         CALL_SUB_PROG(test_levels);
         CALL_SUB_PROG(test_fas);
+        CALL_SUB_PROG(test_fmg_fas);
     } catch (const boost::property_tree::ptree_error &e) {
         cerr << "Usage: " << endl;
         zjucad::show_usage_info(std::cerr, pt);
