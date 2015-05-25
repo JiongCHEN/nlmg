@@ -16,6 +16,27 @@ using boost::property_tree::ptree;
 
 #define INDEX(i, j, N) ((i-1)*(N-1)+(j-1))
 
+int write_image(const char *file, const Eigen::VectorXd &u) {
+    const int N = static_cast<int>(std::sqrt(u.size())) + 1;
+    const double min_u = u.minCoeff();
+    const double max_u = u.maxCoeff();
+    FILE *fp = fopen(file, "wb");
+    fprintf(fp, "P6\n%d %d\n255\n", N-1, N-1);
+    for (int i = 1; i <= N-1; ++i) {
+        for(int j = 1; j <= N-1; ++j) {
+            static unsigned char color[3];
+            color[0] = (u[INDEX(i, j, N)]-min_u)/(max_u-min_u) * 255;
+            color[1] = 0;
+            color[2] = 0;
+            fwrite(color, 1, 3, fp);
+            if ( (int)color[0] == 255 )
+                cout << (int)color[0] << endl;
+        }
+    }
+    fclose(fp);
+    return 0;
+}
+
 int test_grid_func(ptree &pt) {
     /// resolution and gamma
     grid_func A(128, 1000);
@@ -156,6 +177,8 @@ int test_fas(ptree &pt) {
             }(i*h, j*h);
         }
     }
+    write_image("./solution.ppm", u);
+
     /// sampling rhs
     shared_ptr<source_func> fun = std::make_shared<func1>(opts.get<size_t>("gamma"));
     VectorXd f(NF);
@@ -168,6 +191,7 @@ int test_fas(ptree &pt) {
     srand(time(NULL));
     VectorXd x = VectorXd::Random(NX);
     sol.solve(x, f);
+    write_image("./approximation.ppm", x);
 
     cout << "# error norm: " << (u-x).norm() << endl;
     cout << "# done\n";
