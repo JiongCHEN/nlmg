@@ -87,8 +87,9 @@ public:
     nlmg_solver();
     nlmg_solver(const boost::property_tree::ptree &pt);
     void build_levels(const size_t fine_res);
-    int solve(vec_t &x, const vec_t &rhs);
+    int solveFAS(vec_t &x, const vec_t &rhs);
     int solveFMG(vec_t &x, const vec_t &rhs);
+    int solveNewton(vec_t &x, const vec_t &rhs);
     size_t get_domain_dim() const { return levels_.begin()->get_nx(); }
     size_t get_range_dim() const { return levels_.begin()->get_nf(); }
 private:

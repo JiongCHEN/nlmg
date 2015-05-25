@@ -134,7 +134,7 @@ nlmg_solver::nlmg_solver()
       nbr_outer_cycle_(10),
       nbr_prev_smooth_(3),
       nbr_post_smooth_(3),
-      tolerance_(1e-8),
+      tolerance_(1e-10),
       gamma_(1000) {}
 
 nlmg_solver::nlmg_solver(const boost::property_tree::ptree &pt) {
@@ -169,7 +169,33 @@ void nlmg_solver::build_levels(const size_t fine_res) {
     cout << "----------------------------------------------\n";
 }
 
-int nlmg_solver::solve(vec_t &x, const vec_t &rhs) {
+int nlmg_solver::solveNewton(vec_t &x, const vec_t &rhs) {
+    level_iterator fine = levels_.begin();
+
+    SimplicialCholesky<SparseMatrix<double>> sol;
+    for (size_t iter = 0; iter < 1000; ++iter) {
+        vec_t Au(fine->A_->nf());
+        fine->A_->eval_val(&x[0], &Au[0]);
+        vec_t rd = rhs-Au;
+
+        if ( rd.norm() <= tolerance_ ) {
+            cout << "[INFO] Newton converged after "
+                 << iter << " iterations\n";
+            break;
+        }
+
+        SparseMatrix<double> J(fine->A_->nf(), fine->A_->nx());
+        fine->A_->eval_jac(&x[0], &J);
+        sol.compute(J);
+        assert(sol.info() == Success);
+        vec_t dx = sol.solve(rd);
+        assert(sol.info() == Success);
+        x += dx;
+    }
+    return 0;
+}
+
+int nlmg_solver::solveFAS(vec_t &x, const vec_t &rhs) {
     for (size_t i = 0; i < nbr_outer_cycle_; ++i) {
         cout << "[INFO] V-cycle " << i << "\n";
         cycle(levels_.begin(), rhs, x);
@@ -310,7 +336,7 @@ void nlmg_solver::fmg_cycle(level_iterator curr, const vec_t &rhs, vec_t &x) {
         fmg_cycle(next, *next->f_, *next->u_);
     }
     x = (*curr->P_)*(*next->u_);
-    for (size_t iter = 0; iter < 6; ++iter)
+    for (size_t iter = 0; iter < 8; ++iter)
         cycle(curr, rhs, x);
 }
 

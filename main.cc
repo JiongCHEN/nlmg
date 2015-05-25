@@ -25,12 +25,10 @@ int write_image(const char *file, const Eigen::VectorXd &u) {
     for (int i = 1; i <= N-1; ++i) {
         for(int j = 1; j <= N-1; ++j) {
             static unsigned char color[3];
-            color[0] = (u[INDEX(i, j, N)]-min_u)/(max_u-min_u) * 255;
+            color[0] = ((u[INDEX(i, j, N)]-min_u)/(max_u-min_u))*255;
             color[1] = 0;
             color[2] = 0;
             fwrite(color, 1, 3, fp);
-            if ( (int)color[0] == 255 )
-                cout << (int)color[0] << endl;
         }
     }
     fclose(fp);
@@ -187,13 +185,17 @@ int test_fas(ptree &pt) {
             f[INDEX(i, j, N)] = (*fun)(i*h, j*h);
         }
     }
-    /// solve
-    srand(time(NULL));
-    VectorXd x = VectorXd::Random(NX);
-    sol.solve(x, f);
+    /// solve using FAS
+    VectorXd x = VectorXd::Zero(NX);
+    sol.solveFAS(x, f);
     write_image("./approximation.ppm", x);
-
     cout << "# error norm: " << (u-x).norm() << endl;
+
+    /// solve by Newton
+    x = VectorXd::Zero(NX);
+    sol.solveNewton(x, f);
+    cout << "# error norm: " << (u-x).norm() << endl;
+
     cout << "# done\n";
     return 0;
 }
