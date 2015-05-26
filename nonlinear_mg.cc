@@ -178,7 +178,7 @@ int nlmg_solver::solveNewton(vec_t &x, const vec_t &rhs) {
         fine->A_->eval_val(&x[0], &Au[0]);
         vec_t rd = rhs-Au;
 
-        if ( rd.norm() <= tolerance_ ) {
+        if ( rd.norm() < tolerance_ ) {
             cout << "[INFO] Newton converged after "
                  << iter << " iterations\n";
             break;
@@ -198,26 +198,28 @@ int nlmg_solver::solveNewton(vec_t &x, const vec_t &rhs) {
 int nlmg_solver::solveFAS(vec_t &x, const vec_t &rhs) {
     for (size_t i = 0; i < nbr_outer_cycle_; ++i) {
         cout << "[INFO] V-cycle " << i << "\n";
-        cycle(levels_.begin(), rhs, x);
-
         vec_t Au(get_range_dim());
         levels_.begin()->A_->eval_val(&x[0], &Au[0]);
         vec_t resd = rhs - Au;
-        if ( resd.norm() <= tolerance_ ) {
-            cout << "[INFO] CONVERGED\n\n";
+        if ( resd.norm() < tolerance_ ) {
+            cout << "[INFO] FAS converged after "
+                 << i << " iterations\n\n";
             break;
         }
+        cycle(levels_.begin(), rhs, x);
     }
     return 0;
 }
 
 int nlmg_solver::solveFMG(vec_t &x, const vec_t &rhs) {
-    fmg_cycle(levels_.begin(), rhs, x);
-
     vec_t Au(get_range_dim());
     levels_.begin()->A_->eval_val(&x[0], &Au[0]);
     vec_t resd = rhs - Au;
     cout << "residual norm: " << resd.norm() << endl;
+    if ( resd.norm() < tolerance_ ) {
+        cout << "[INFO] FMG+FAS converged\n";
+    }
+    fmg_cycle(levels_.begin(), rhs, x);
     return 0;
 }
 
@@ -300,7 +302,7 @@ void nlmg_solver::cycle(level_iterator curr, const vec_t &rhs, vec_t &x) {
     ++next;
 
     if ( next == levels_.end() ) {
-        curr->A_->solve(&x[0], &rhs[0], 1000);
+        curr->A_->solve(&x[0], &rhs[0], 1);
     } else {
         for (size_t j = 0; j < nbr_inner_cycle_; ++j) {
             curr->A_->smooth(&x[0], &rhs[0], nbr_prev_smooth_);
@@ -329,14 +331,14 @@ void nlmg_solver::fmg_cycle(level_iterator curr, const vec_t &rhs, vec_t &x) {
     ++next;
 
     if ( next == levels_.end() ) {
-        curr->A_->solve(&x[0], &rhs[0], 1000);
+        curr->A_->solve(&x[0], &rhs[0], 1);
         return;
     } else {
         *next->f_ = (*curr->R_)*rhs;
         fmg_cycle(next, *next->f_, *next->u_);
     }
     x = (*curr->P_)*(*next->u_);
-    for (size_t iter = 0; iter < 8; ++iter)
+    for (size_t iter = 0; iter < 7; ++iter)
         cycle(curr, rhs, x);
 }
 

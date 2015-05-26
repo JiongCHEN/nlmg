@@ -149,13 +149,13 @@ int test_levels(ptree &pt) {
 
 int test_fas(ptree &pt) {
     ptree opts;
-    opts.put("level_number", 6);
+    opts.put("level_number", 7);
     opts.put("inner_iters", 1);
     opts.put("outer_iters", 100);
     opts.put("prev_smooth", 3);
     opts.put("post_smooth", 3);
     opts.put("tolerance", 1e-10);
-    opts.put("gamma", 0);
+    opts.put("gamma", 1000);
 
     const size_t N = 128;
     const double h = 1.0/N;
@@ -202,13 +202,13 @@ int test_fas(ptree &pt) {
 
 int test_fmg_fas(ptree &pt) {
     ptree opts;
-    opts.put("level_number", 6);
+    opts.put("level_number", 7);
     opts.put("inner_iters", 1);
     opts.put("outer_iters", 100);
     opts.put("prev_smooth", 2);
     opts.put("post_smooth", 2);
     opts.put("tolerance", 1e-10);
-    opts.put("gamma", 0);
+    opts.put("gamma", 10000);
 
     const size_t N = 128;
     const double h = 1.0/N;
