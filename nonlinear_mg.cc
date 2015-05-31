@@ -212,6 +212,7 @@ int nlmg_solver::solveFAS(vec_t &x, const vec_t &rhs) {
 }
 
 int nlmg_solver::solveFMG(vec_t &x, const vec_t &rhs) {
+    fmg_cycle(levels_.begin(), rhs, x);
     vec_t Au(get_range_dim());
     levels_.begin()->A_->eval_val(&x[0], &Au[0]);
     vec_t resd = rhs - Au;
@@ -219,7 +220,6 @@ int nlmg_solver::solveFMG(vec_t &x, const vec_t &rhs) {
     if ( resd.norm() < tolerance_ ) {
         cout << "[INFO] FMG+FAS converged\n";
     }
-    fmg_cycle(levels_.begin(), rhs, x);
     return 0;
 }
 
@@ -338,7 +338,7 @@ void nlmg_solver::fmg_cycle(level_iterator curr, const vec_t &rhs, vec_t &x) {
         fmg_cycle(next, *next->f_, *next->u_);
     }
     x = (*curr->P_)*(*next->u_);
-    for (size_t iter = 0; iter < 7; ++iter)
+    for (size_t iter = 0; iter < 8; ++iter)
         cycle(curr, rhs, x);
 }
 
