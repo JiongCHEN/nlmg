@@ -223,6 +223,11 @@ int nlmg_solver::solveFMG(vec_t &x, const vec_t &rhs) {
   return 0;
 }
 
+/**
+ * @brief full weighting + linear interpolation
+ * @param curr level
+ * @return $I_h^{2h}$ and $I_{2h}^h$
+ */
 nlmg_solver::transfer_t nlmg_solver::coarsen(level_iterator curr) {
   const size_t Nf = curr->get_res();
   const size_t Nc = Nf/2;
